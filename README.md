@@ -1,6 +1,6 @@
 # dit
 
-#### Glue for common tools, making them easier to use in a consistent way while increasing productivity.
+### Glue for common tools, making them easier to use in a consistent way while increasing productivity.
 
 Dit is a single shell script that glues development tools together by allowing short-hand squashed commands to save time and increase productivity. Using docker containers means you don't need to worry about dependencies and can get on with coding 💻 
 
