@@ -478,7 +478,7 @@ __save_branch() {
     swap_list="$(pwd)::${branch_name}"
   else
     case "${swap_list}" in
-    *"$(pwd)::${branch_name}"*) swap_list=$(printf "%s" "${swap_list}" | sed "s/${$(pwd)::branch_name}//g" | sed "/^[[:space:]]*$/d") ;;
+    *"$(pwd)::${branch_name}"*) swap_list=$(printf "%s" "${swap_list}" | sed "s/$(pwd)::${branch_name}//g" | sed "/^[[:space:]]*$/d") ;;
     *) ;;
     esac
 
