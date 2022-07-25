@@ -498,7 +498,7 @@ __save_branch() {
     swap_list="$(pwd)::${branch_name}"
   else
     case "${swap_list}" in
-    *"$(pwd)::${branch_name}"*) swap_list=$(printf "%s" "${swap_list}" | sed "s/$(pwd)::${branch_name}//g" | sed "/^[[:space:]]*$/d") ;;
+    *"$(pwd)::${branch_name}"*) swap_list=$(printf "%s" "${swap_list}" | sed "s|$(pwd)::${branch_name}||g" | sed "/^[[:space:]]*$/d") ;;
     *) ;;
     esac
 
@@ -524,7 +524,7 @@ __get_branch_count() {
   fi
 
   # Remove lines that do not begin with the current directory
-  swap_list=$(printf "%s" "${swap_list}" | sed "s/^.*$(pwd):://g" | sed "/^[[:space:]]*$/d")
+  swap_list=$(printf "%s" "${swap_list}" | sed "s|^.*$(pwd)::||g" | sed "/^[[:space:]]*$/d")
 
   return "$(printf "%s" "${swap_list}"  | wc -l)"
 }
@@ -545,7 +545,7 @@ __load_branch() {
   fi
 
   # Remove lines that do not begin with the current directory
-  swap_list=$(printf "%s" "${swap_list}" | sed "s/^.*$(pwd):://g" | sed "/^[[:space:]]*$/d")
+  swap_list=$(printf "%s" "${swap_list}" | sed "s|^.*$(pwd)::||g" | sed "/^[[:space:]]*$/d")
 
   printf "%s" "${swap_list}" | head -n "${index}" | tail -n 1
 }
@@ -565,7 +565,7 @@ __load_last_branch() {
   fi
 
   # Remove lines that do not begin with the current directory
-  swap_list=$(printf "%s" "${swap_list}" | sed "s/^.*$(pwd):://g" | sed "/^[[:space:]]*$/d")
+  swap_list=$(printf "%s" "${swap_list}" | sed "s|^.*$(pwd)::||g" | sed "/^[[:space:]]*$/d")
 
   branch=$(printf "%s" "${swap_list}" | tail -n 1)
   if [ "${branch}" = "$(branch)" ]; then
