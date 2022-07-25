@@ -6,7 +6,7 @@
 #
 # Tools:
 #  - docker
-#  - docker-compose
+#  - docker compose
 #  - git
 #
 # Package Managers:
@@ -37,7 +37,7 @@ branch() {
 # Build the project
 #
 build() {
-  docker-compose build "$@"
+  docker compose --project-name "$(branch)" build "$@"
 }
 
 #
@@ -58,7 +58,7 @@ diff() {
 # Bring down project
 #
 down() {
-  docker compose down "$*"
+  docker compose --project-name "$(branch)" down $*
 }
 
 #
@@ -97,7 +97,7 @@ push() {
 # Restart project
 #
 restart() {
-  docker-compose restart "$@"
+  docker compose --project-name "$(branch)" restart "$@"
 }
 
 #
@@ -111,7 +111,7 @@ reinstall() {
 
   if [ -f "composer.json" ]; then
     printf "%s\n" "Installing composer dependencies..."
-    [ "${clean}" = "true" ] && rm -rf vendor || true
+    [ "${clean}" = "true" ] && (rm -rf vendor || true)
     docker run --interactive --tty --volume "$(pwd):/app" composer install \
       --ignore-platform-reqs \
       --optimize-autoloader \
@@ -187,8 +187,10 @@ reup() {
     shift
   done
 
-  docker-compose down ${volumes}
-  docker-compose up ${up}
+  docker compose --project-name "$(branch)" down ${volumes}
+
+  # shellcheck disable=SC2086
+  docker compose --project-name "$(branch)" up ${up}
 }
 
 #
@@ -220,10 +222,20 @@ run() {
       exit 1
     fi
 
+    # shellcheck disable=SC2086
     docker run --rm --interactive --tty "${image}" ${args}
   fi
 
-  docker-compose exec --interactive --tty ${args}
+  # shellcheck disable=SC2086
+  docker compose --project-name "$(branch)" exec --interactive --tty ${args}
+}
+
+#
+# Commit and push to remote.
+#
+save() {
+  commit "$@"
+  push "$@"
 }
 
 #
@@ -317,32 +329,36 @@ swap() {
     shift
   done
 
-  current_branch=$(branch)
+  current_branch="$(branch)"
 
   if [ "${branch_name}" != "${current_branch}" ]; then
-    down "${volumes}" || true
+    #down "${volumes}"
 
     if [ -n "${stash}" ]; then
+      echo "Stashing..."
       git stash --include-untracked
     fi
 
+    echo "Checking out ${branch_name}..."
     git checkout "${branch_name}"
 
     if [ -n "${pull}" ]; then
+      echo "Pulling..."
       git pull
     fi
 
     if [ -n "${apply}" ]; then
+      echo "Applying stash..."
       git stash pop
     fi
   fi
 
-  if [ -z "${no_up}" ]; then
-    up --build --detach --recreate --cleanup
-  fi
-
   if [ -n "${reinstall_deps}" ]; then
     reinstall
+  fi
+
+  if [ -z "${no_up}" ]; then
+    up --build --detach --recreate --cleanup
   fi
 }
 
@@ -394,7 +410,8 @@ up() {
     shift
   done
 
-  docker-compose up ${up}
+  # shellcheck disable=SC2086
+  docker compose --project-name "$(branch)" up ${up}
 
   __save_branch
 }
@@ -407,7 +424,7 @@ usage() {
 Usage: dit <command> [options]
     dit branch                  Print the current branch.
     dit build <options>         Build the current project.
-    dit commit <message>        Commit the current project.
+    dit commit <message>        Commit the current branch.
     dit down <options>          Bring the current project down.
         -v, --volumes           Remove volumes
     dit diff <options>          Print the diff of the current branch.
@@ -424,6 +441,7 @@ Usage: dit <command> [options]
     dit reinstall               Reinstall the current project dependencies (supports composer, npm, yarn, rubygems, pypi, swiftpm).
     dit run <command>           Run a command on a container instance.
         -g, --global <image>    Run a command on a global image.
+    dit save <message>          Commit and push current changes.
     dit sh <options>            Spawn a shell on a container instance.
         -g, --global <image>    Spawn a shell on a global image.
     dit swap <branch>           Swap to a new branch, bringing the current project down and back up.
@@ -441,12 +459,14 @@ Usage: dit <command> [options]
 
     Examples:
         dit branch                               | dit br
+        dit commit \"Commit message\"            | dit c \"Commit message\"
         dit down --volumes                       | dit d -v
         dit install                              | dit i
         dit reup --build --detach --volumes      | dit reup -bdv
         dit restart                              | dit res
         dit run container ls                     | dit r container ls
-        dit run 'echo h' -g composer             | dit r 'echo h' -g composer
+        dit run 'echo h' -g composer             | dit r 'composer update' -g composer
+        dit save
         dit sh -g alpine                         | dit sh -g alpine
         dit sh container1                        | dit sh container1
         dit swap master --volumes                | dit s master -v
@@ -469,7 +489,7 @@ __save_branch() {
   fi
 
   if [ -f "${swap_file}" ]; then
-    swap_list=$(cat "${swap_file}")
+    swap_list="$(cat "${swap_file}")"
   else
     swap_list=""
   fi
@@ -621,6 +641,11 @@ main() {
     r|run)
       shift
       run "$@"
+      exit
+      ;;
+    sv|save)
+      shift
+      save "$@"
       exit
       ;;
     sh)
