@@ -120,29 +120,29 @@ reinstall() {
       --prefer-dist
   fi
 
-  if [ -f "package.json" ]; then
+  if [ -f "package.json" ] && [ ! -f "yarn.lock" ]; then
     printf "%s\n" "Installing npm dependencies..."
-    [ "${clean}" = "true" ] && rm -rf node_modules || true
+    [ "${clean}" = "true" ] && (rm -rf node_modules || true)
     docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" node npm install
   fi
-  if [ -f "yarn.lock" ]; then
+  if [ -f "package.json" ] && [ -f "yarn.lock" ]; then
     printf "%s\n" "Installing yarn dependencies..."
-    [ "${clean}" = "true" ] && rm -rf node_modules || true
+    [ "${clean}" = "true" ] && (rm -rf node_modules || true)
     docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" node yarn install
   fi
   if [ -f "Gemfile" ]; then
     printf "%s\n" "Installing RubyGems dependencies..."
-    [ "${clean}" = "true" ] && rm -rf vendor || true
+    [ "${clean}" = "true" ] && (rm -rf vendor || true)
     docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" ruby bundle install
   fi
   if [ -f "requirements.txt" ]; then
     printf "%s\n" "Installing PyPI dependencies..."
-    [ "${clean}" = "true" ] && rm -rf vendor || true
+    [ "${clean}" = "true" ] && (rm -rf vendor || true)
     docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" python pip install -r requirements.txt
   fi
   if [ -f "Package.swift" ]; then
     printf "%s\n" "Installing Swift dependencies..."
-    [ "${clean}" = "true" ] && rm -rf .build || true
+    [ "${clean}" = "true" ] && (rm -rf .build || true)
     docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" swiftarm/swift swift package resolve
   fi
 }
