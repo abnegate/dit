@@ -37,7 +37,8 @@ branch() {
 # Build the project
 #
 build() {
-  docker compose --project-name "$(branch)" build "$@"
+  # TODO: Support for other build tools based on project file
+  docker compose --project-name "$(__get_project)" build "$@"
 }
 
 #
@@ -76,7 +77,7 @@ info() {
 # Install dependencies from composer, npm, yarn, rubygems and pypi if their package files are found
 #
 install() {
-  reinstall -i
+  reinstall "$@" -i
 }
 
 #
@@ -101,49 +102,72 @@ restart() {
 }
 
 #
-# Reinstall dependencies from composer, npm, yarn, rubygems and pypi if their package files are found
+# Reinstall dependencies from composer, npm, yarn, rubygems, pypi, or swiftpm if their package files are found
 #
 reinstall() {
+  type=""
   clean="true"
-  if [ "$1" = "-i" ]; then
-    clean="false"
+  for arg in "$@"; do
+    if [ "${arg}" = "-i" ]; then
+      clean="false"
+    else
+      type="${arg}"
+    fi
+  done
+
+  case "${type}" in
+    c) type="composer" ;;
+    n) type="npm" ;;
+    y) type="yarn" ;;
+    r) type="rubygems" ;;
+    p) type="pypi" ;;
+    s) type="swiftpm" ;;
+  esac
+
+  if [ -n "${type}" ]; then
+    case "$(__get_platforms)" in
+      *"${type}"*) ;;
+      *)
+      printf "%s\n" "Platform ${type} is not supported."
+      exit 1
+      ;;
+    esac
   fi
 
-  if [ -f "composer.json" ]; then
-    printf "%s\n" "Installing composer dependencies..."
+  if { [ -z "${type}" ] || [ "${type}" = "composer" ]; } && [ -f "composer.json" ]; then
+    printf "%s\n" "Installing Composer dependencies..."
     [ "${clean}" = "true" ] && (rm -rf vendor || true)
-    docker run --interactive --tty --volume "$(pwd):/app" composer install \
+    docker run --rm --interactive --tty --volume "$(pwd):/app" composer install \
       --ignore-platform-reqs \
       --optimize-autoloader \
       --no-plugins \
       --no-scripts \
       --prefer-dist
   fi
-
-  if [ -f "package.json" ] && [ ! -f "yarn.lock" ]; then
-    printf "%s\n" "Installing npm dependencies..."
+  if { [ -z "${type}" ] || [ "${type}" = "npm" ]; } && [ -f "package.json" ] && [ ! -f "yarn.lock" ]; then
+    printf "%s\n" "Installing NPM dependencies..."
     [ "${clean}" = "true" ] && (rm -rf node_modules || true)
-    docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" node npm install
+    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" node npm install
   fi
-  if [ -f "package.json" ] && [ -f "yarn.lock" ]; then
-    printf "%s\n" "Installing yarn dependencies..."
+  if { [ -z "${type}" ] || [ "${type}" = "yarn" ]; } && [ -f "package.json" ] && [ -f "yarn.lock" ]; then
+    printf "%s\n" "Installing Yarn dependencies..."
     [ "${clean}" = "true" ] && (rm -rf node_modules || true)
-    docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" node yarn install
+    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" node yarn install
   fi
-  if [ -f "Gemfile" ]; then
+  if { [ -z "${type}" ] || [ "${type}" = "rubygems" ]; } && [ -f "Gemfile" ]; then
     printf "%s\n" "Installing RubyGems dependencies..."
     [ "${clean}" = "true" ] && (rm -rf vendor || true)
-    docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" ruby bundle install
+    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" ruby bundle install
   fi
-  if [ -f "requirements.txt" ]; then
+  if { [ -z "${type}" ] || [ "${type}" = "pypi" ]; } && [ -f "requirements.txt" ]; then
     printf "%s\n" "Installing PyPI dependencies..."
     [ "${clean}" = "true" ] && (rm -rf vendor || true)
-    docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" python pip install -r requirements.txt
+    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" python pip install -r requirements.txt
   fi
-  if [ -f "Package.swift" ]; then
+  if { [ -z "${type}" ] || [ "${type}" = "swiftpm" ]; } && [ -f "Package.swift" ]; then
     printf "%s\n" "Installing Swift dependencies..."
     [ "${clean}" = "true" ] && (rm -rf .build || true)
-    docker run --interactive --tty --volume "$(pwd):/app" --workdir "/app" swiftarm/swift swift package resolve
+    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" swift swift package resolve
   fi
 }
 
@@ -218,7 +242,7 @@ run() {
 
   if [ "${global}" = "true" ]; then
     if [ -z "${image}" ]; then
-      printf "%s\n" "Image name is required for global run."
+      printf "%s\n" "An image name is required for a global run."
       exit 1
     fi
 
@@ -459,9 +483,11 @@ Usage: dit <command> [options]
 
     Examples:
         dit branch                               | dit br
+        dit build                                | dit b
         dit commit \"Commit message\"            | dit c \"Commit message\"
         dit down --volumes                       | dit d -v
         dit install                              | dit i
+        dit reinstall composer                   | dit ri c
         dit reup --build --detach --volumes      | dit reup -bdv
         dit restart                              | dit res
         dit run container ls                     | dit r container ls
@@ -474,6 +500,14 @@ Usage: dit <command> [options]
         dit swap 2.0 --pull --reinstall          | dit s 2.0 -p -i
         dit up --build --detach --recreate       | dit u -bdr
   "
+}
+
+__get_project() {
+  printf "%s" "$(basename "$(git rev-parse --show-toplevel)")-$(branch)"
+}
+
+__get_platforms() {
+  printf "%s" "composer npm yarn rubygems pypi swiftpm"
 }
 
 #
