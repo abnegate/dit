@@ -37,7 +37,7 @@ branch() {
 # Build the project
 #
 build() {
-  docker compose --project-name "$(branch)" build "$@"
+  docker compose --project-name "$(__get_project)" build "$@"
 }
 
 #
@@ -58,7 +58,7 @@ diff() {
 # Bring down project
 #
 down() {
-  docker compose --project-name "$(branch)" down $*
+  docker compose --project-name "$(__get_project)" down "$@"
 }
 
 #
@@ -97,7 +97,7 @@ push() {
 # Restart project
 #
 restart() {
-  docker compose --project-name "$(branch)" restart "$@"
+  docker compose --project-name "$(__get_project)" restart "$@"
 }
 
 #
@@ -187,10 +187,8 @@ reup() {
     shift
   done
 
-  docker compose --project-name "$(branch)" down ${volumes}
-
-  # shellcheck disable=SC2086
-  docker compose --project-name "$(branch)" up ${up}
+  docker compose --project-name "$(__get_project)" down ${volumes}
+  docker compose --project-name "$(__get_project)" up ${up}
 }
 
 #
@@ -222,12 +220,10 @@ run() {
       exit 1
     fi
 
-    # shellcheck disable=SC2086
     docker run --rm --interactive --tty "${image}" ${args}
   fi
 
-  # shellcheck disable=SC2086
-  docker compose --project-name "$(branch)" exec --interactive --tty ${args}
+  docker compose --project-name "$(__get_project)" exec --interactive --tty ${args}
 }
 
 #
@@ -411,7 +407,7 @@ up() {
   done
 
   # shellcheck disable=SC2086
-  docker compose --project-name "$(branch)" up ${up}
+  docker compose --project-name "$(__get_project)" up ${up}
 
   __save_branch
 }
@@ -474,6 +470,10 @@ Usage: dit <command> [options]
         dit swap 2.0 --pull --reinstall          | dit s 2.0 -p -i
         dit up --build --detach --recreate       | dit u -bdr
   "
+}
+
+__get_project() {
+  printf "%s" "$(basename "$(git rev-parse --show-toplevel)")-$(branch)"
 }
 
 #
