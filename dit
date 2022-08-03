@@ -145,8 +145,11 @@ reinstall() {
 
   if { [ -z "${type}" ] || [ "${type}" = "composer" ]; } && [ -f "composer.json" ]; then
     printf "%s\n" "Installing Composer dependencies..."
-    [ "${clean}" = "true" ] && (rm -rf vendor || true)
-    docker run --rm -itv "$(pwd):/app" composer:${COMPOSER_VERSION} install \
+    if [ "${clean}" = "true" ]; then
+      rm -rf vendor > /dev/null 2>&1 || true
+      rm composer.lock > /dev/null 2>&1 || true
+    fi
+    docker run --rm -itv "$(pwd):/app" composer:${COMPOSER_VERSION} composer install \
       --ignore-platform-reqs \
       --optimize-autoloader \
       --no-plugins \
