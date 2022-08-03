@@ -497,7 +497,7 @@ Usage: dit <command> [options]
     Examples:
         dit branch                               | dit br
         dit build                                | dit b
-        dit commit \"Commit message\"            | dit c \"Commit message\"
+        dit commit \"Commit message\"              | dit c \"Commit message\"
         dit down --volumes                       | dit d -v
         dit install                              | dit i
         dit reinstall composer                   | dit ri c
