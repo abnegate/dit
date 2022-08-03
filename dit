@@ -9,16 +9,24 @@
 #  - docker compose
 #  - git
 #
-# Package Managers:
+# Package Managers / Build tools:
 #  - composer
 #  - npm
 #  - yarn
 #  - rubygems
 #  - pypi
 #  - swiftpm
+#  - gradle
 #
 # Author: Jake Barnby
 #
+
+COMPOSER_VERSION="2.3"
+GRADLE_VERSION="7.5.0-focal"
+SWIFT_VERSION="5.6.2-focal"
+PYTHON_VERSION="3.10-alpine"
+RUBY_VERSION="3.1-alpine"
+NODE_VERSION="18-alpine"
 
 set -e
 
@@ -37,7 +45,7 @@ branch() {
 # Build the project
 #
 build() {
-  # TODO: Support for other build tools based on project file
+  # TODO: Support for native build tools based on project file
   docker compose --project-name "$(__get_project)" build "$@"
 }
 
@@ -117,11 +125,12 @@ reinstall() {
 
   case "${type}" in
     c) type="composer" ;;
+    g) type="gradle" ;;
     n) type="npm" ;;
-    y) type="yarn" ;;
-    r) type="rubygems" ;;
     p) type="pypi" ;;
+    r) type="rubygems" ;;
     s) type="swiftpm" ;;
+    y) type="yarn" ;;
   esac
 
   if [ -n "${type}" ]; then
@@ -137,7 +146,7 @@ reinstall() {
   if { [ -z "${type}" ] || [ "${type}" = "composer" ]; } && [ -f "composer.json" ]; then
     printf "%s\n" "Installing Composer dependencies..."
     [ "${clean}" = "true" ] && (rm -rf vendor || true)
-    docker run --rm --interactive --tty --volume "$(pwd):/app" composer install \
+    docker run --rm -itv "$(pwd):/app" composer:${COMPOSER_VERSION} install \
       --ignore-platform-reqs \
       --optimize-autoloader \
       --no-plugins \
@@ -147,27 +156,32 @@ reinstall() {
   if { [ -z "${type}" ] || [ "${type}" = "npm" ]; } && [ -f "package.json" ] && [ ! -f "yarn.lock" ]; then
     printf "%s\n" "Installing NPM dependencies..."
     [ "${clean}" = "true" ] && (rm -rf node_modules || true)
-    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" node npm install
+    docker run --rm -itv "$(pwd):/app" -w "/app" node:${NODE_VERSION} npm install
   fi
   if { [ -z "${type}" ] || [ "${type}" = "yarn" ]; } && [ -f "package.json" ] && [ -f "yarn.lock" ]; then
     printf "%s\n" "Installing Yarn dependencies..."
     [ "${clean}" = "true" ] && (rm -rf node_modules || true)
-    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" node yarn install
+    docker run --rm -itv "$(pwd):/app" -w "/app" node:${NODE_VERSION} yarn install
   fi
   if { [ -z "${type}" ] || [ "${type}" = "rubygems" ]; } && [ -f "Gemfile" ]; then
     printf "%s\n" "Installing RubyGems dependencies..."
     [ "${clean}" = "true" ] && (rm -rf vendor || true)
-    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" ruby bundle install
+    docker run --rm -itv "$(pwd):/app" -w "/app" ruby:${RUBY_VERSION} bundle install --path vendor/bundle
   fi
   if { [ -z "${type}" ] || [ "${type}" = "pypi" ]; } && [ -f "requirements.txt" ]; then
     printf "%s\n" "Installing PyPI dependencies..."
     [ "${clean}" = "true" ] && (rm -rf vendor || true)
-    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" python pip install -r requirements.txt
+    docker run --rm -itv "$(pwd):/app" -w "/app" python:${PYTHON_VERSION} pip install -r requirements.txt --target vendor
   fi
   if { [ -z "${type}" ] || [ "${type}" = "swiftpm" ]; } && [ -f "Package.swift" ]; then
     printf "%s\n" "Installing Swift dependencies..."
     [ "${clean}" = "true" ] && (rm -rf .build || true)
-    docker run --rm --interactive --tty --volume "$(pwd):/app" --workdir "/app" swift swift package resolve
+    docker run --rm -itv "$(pwd):/app" -w "/app" swift:"${SWIFT_VERSION}" swift package resolve
+  fi
+  if { [ -z "${type}" ] || [ "${type}" = "gradle" ]; } && [ -f "build.gradle" ]; then
+    printf "%s\n" "Installing Gradle dependencies..."
+    [ "${clean}" = "true" ] && (rm -rf build || true)
+    docker run --rm -itv "$(pwd):/app" -w "/app" gradle:"${GRADLE_VERSION}" gradle --refresh-dependencies
   fi
 }
 
